@@ -112,7 +112,7 @@ export class Enemy extends Entity<EnemyAnimState> {
      * @param target — игрок, за которым бежит противник
      */
     constructor(scene: Phaser.Scene, x: number, feetY: number, target: Player) {
-        super(scene, x, feetY, ENEMY_W, ENEMY_H, ENEMY_MAX_HP, ENEMY_ANIMS, EnemyAnimState.Run, 1.5);
+        super(scene, x, feetY, ENEMY_W, ENEMY_H, ENEMY_MAX_HP, ENEMY_ANIMS, EnemyAnimState.Run, 2);
 
         this.target = target;
         this.speed = Phaser.Math.Between(SPEED_MIN, SPEED_MAX);
@@ -208,6 +208,7 @@ export class Enemy extends Entity<EnemyAnimState> {
         this.hurtState = HURT_STATES[type];
         this.hurtEndsAt = this.scene.time.now + HURT_DURATIONS[type];
         this.nextAttackAt = this.hurtEndsAt + ATTACK_COOLDOWN / 2;
+        this.flash(0xffffff, 70);
         // Перезапускаем анимацию, даже если противника бьют тем же ударом повторно
         this.setAnimState(this.hurtState);
         this.restartAnim();
@@ -218,6 +219,7 @@ export class Enemy extends Entity<EnemyAnimState> {
         super.die(sourceX, hitType);
         this.attack = undefined;
         this.setAnimState(EnemyAnimState.Death);
+        this.flash(0xffffff, 70);
         if (!this.hasSpriteAnim()) this.setBodyHeight(14); // заглушка «лежит» на полу
 
         this.scene.events.emit('enemy-killed', this);

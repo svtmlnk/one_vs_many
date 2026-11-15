@@ -18,6 +18,93 @@ const GROUND_Y = 400; // верх земли
 
 const GROUND_COLOR = 0x13222a;
 
+// ---- Параллакс-горы ----
+/** Вершина горы в игровых координатах. Двигай точки, чтобы менять форму и высоту. */
+interface MountainPeak {
+  x: number;
+  y: number;
+}
+
+/**
+ * Один слой параллакса.
+ * x и width — занимаемая область; baseY — линия, к которой замыкается силуэт;
+ * scrollFactor — скорость слоя относительно камеры: меньше 1 — дальний план,
+ * больше 1 — передний план, закрывающий персонажей.
+ */
+interface ParallaxMountainLayer {
+  name: string;
+  color: number;
+  alpha: number;
+  depth: number;
+  scrollFactor: number;
+  x: number;
+  width: number;
+  baseY: number;
+  /** Вершины слева направо. Крайние края дополнительно соединяются с baseY. */
+  peaks: MountainPeak[];
+}
+
+/**
+ * Три редактируемых слоя из примера. После добавления PNG замените createMountainLayer
+ * на this.add.image(...) с теми же x/baseY/scrollFactor/depth — остальную настройку менять не придётся.
+ */
+const PARALLAX_MOUNTAINS: ParallaxMountainLayer[] = [
+  {
+    name: "Гора 1",
+    color: 0xed1c24,
+    alpha: 1,
+    depth: -20,
+    scrollFactor: 0.45,
+    x: -150,
+    width: 2220,
+    baseY: GROUND_Y,
+    peaks: [
+      { x: 100, y: 272 },
+      { x: 500, y: 315 },
+      { x: 900, y: 290 },
+      { x: 1300, y: 325 },
+      { x: 1700, y: 280 },
+      { x: 2100, y: 340 },
+    ],
+  },
+  {
+    name: "Гора 2",
+    color: 0xff8617,
+    alpha: 1,
+    depth: -10,
+    scrollFactor: 0.7,
+    x: -150,
+    width: 2220,
+    baseY: GROUND_Y,
+    peaks: [
+      { x: 250, y: 340 },
+      { x: 650, y: 385 },
+      { x: 1050, y: 330 },
+      { x: 1450, y: 380 },
+      { x: 1850, y: 350 },
+    ],
+  },
+  {
+    name: "Гора 3",
+    color: 0x3d3ec8,
+    alpha: 1,
+    depth: 10,
+    scrollFactor: 1.15,
+    x: -300,
+    width: 2700,
+    baseY: GROUND_Y + 250,
+    peaks: [
+      { x: 100, y: 300 },
+      { x: 450, y: 420 },
+      { x: 800, y: 330 },
+      { x: 1150, y: 470 },
+      { x: 1500, y: 340 },
+      { x: 1850, y: 430 },
+      { x: 2200, y: 350 },
+    ],
+  },
+];
+
 // ---- Волна противников ----
 const KILL_TARGET = 30; // сколько нужно убить для победы (столько всего и появится)
 const MAX_ALIVE = 8; // одновременно живых на арене
@@ -48,6 +135,8 @@ export class Game extends Phaser.Scene {
 
     this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
 
+    this.createParallaxMountains();
+
     // Земля — статичное тело во всю ширину арены
     const ground = this.add.rectangle(
       WORLD_W / 2,
@@ -56,6 +145,7 @@ export class Game extends Phaser.Scene {
       WORLD_H - GROUND_Y,
       GROUND_COLOR,
     );
+    ground.setDepth(-5);
     this.physics.add.existing(ground, true);
 
     this.player = new Player(this, WORLD_W / 2, GROUND_Y);
@@ -108,6 +198,30 @@ export class Game extends Phaser.Scene {
     }
     this.cameraTarget.x = this.player.x;
     this.updateHud();
+  }
+
+  // ------------------------------------------------------------------
+  // Параллакс
+  // ------------------------------------------------------------------
+
+  /**
+   * Рисует горы из PARALLAX_MOUNTAINS. Первые два слоя находятся за землёй
+   * (depth < глубины земли), третий — перед персонажами (depth > глубины игрока).
+   */
+  private createParallaxMountains(): void {
+    for (const layer of PARALLAX_MOUNTAINS) {
+      const mountain = this.add.graphics()
+        .setDepth(layer.depth)
+        .setScrollFactor(layer.scrollFactor);
+
+      mountain.fillStyle(layer.color, layer.alpha);
+      mountain.beginPath();
+      mountain.moveTo(layer.x, layer.baseY);
+      for (const peak of layer.peaks) mountain.lineTo(peak.x, peak.y);
+      mountain.lineTo(layer.x + layer.width, layer.baseY);
+      mountain.closePath();
+      mountain.fillPath();
+    }
   }
 
   // ------------------------------------------------------------------

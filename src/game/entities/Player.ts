@@ -10,10 +10,6 @@ import {
 export enum PlayerAnimState {
   Idle = "idle",
   Run = "run",
-  /** В воздухе, летит вверх. */
-  Jump = "jump",
-  /** В воздухе, падает вниз. */
-  Fall = "fall",
   Roll = "roll",
   Attack1 = "attack1",
   Attack2 = "attack2",
@@ -24,7 +20,7 @@ export enum PlayerAnimState {
 
 /**
  * Анимации игрока. Новые спрайты находятся в public/assets/sprites/player.
- * Все файлы, кроме jump.png, содержат один кадр 256×256. Базовый масштаб 0.3
+ * Каждый спрайт содержит один кадр 256×256. Базовый масштаб 0.3
  * дополнительно умножается на общий масштаб сущности (2).
  * Спрайты смотрят вправо — при движении влево они отражаются автоматически.
  */
@@ -42,25 +38,6 @@ export const PLAYER_ANIMS: AnimSet<PlayerAnimState> = {
     frameRate: 1,
     repeat: 0,
     color: 0xf5ec4a,
-  },
-  // jump.png: кадры 0–1 — подъём, кадры 2–3 — падение.
-  [PlayerAnimState.Jump]: {
-    key: "player-jump",
-    sheet: { file: "sprites/player/jump.png", frameWidth: 256, frameHeight: 256, scale: 0.3 },
-    start: 0,
-    end: 1,
-    frameRate: 4,
-    repeat: -1,
-    color: 0xc7f04a,
-  },
-  [PlayerAnimState.Fall]: {
-    key: "player-fall",
-    sheet: { file: "sprites/player/jump.png", frameWidth: 256, frameHeight: 256, scale: 0.3 },
-    start: 2,
-    end: 3,
-    frameRate: 4,
-    repeat: -1,
-    color: 0x9fd03a,
   },
   [PlayerAnimState.Roll]: {
     key: "player-roll",
@@ -122,7 +99,6 @@ const ROLL_H = 34; // высота тела во время переката
 const MAX_HP = 100;
 
 const RUN_SPEED = 500;
-const JUMP_SPEED = 680;
 
 const ROLL_SPEED = 540;
 const ROLL_DURATION = 320; // мс
@@ -184,7 +160,7 @@ const ATTACKS: AttackDef[] = [
 
 /**
  * Игрок с катаной. Управление:
- *  ← / → — бег, Space — прыжок, Shift — перекат, Z — удар (серия из трёх).
+ *  ← / → — бег, Space — перекат, Z — удар (серия из трёх).
  */
 export class Player extends Entity<PlayerAnimState> {
   /** Цели для ударов (противники). Задаёт сцена. */
@@ -196,7 +172,6 @@ export class Player extends Entity<PlayerAnimState> {
   private keys: {
     left: Phaser.Input.Keyboard.Key;
     right: Phaser.Input.Keyboard.Key;
-    jump: Phaser.Input.Keyboard.Key;
     roll: Phaser.Input.Keyboard.Key;
     attack: Phaser.Input.Keyboard.Key;
   };
@@ -230,7 +205,7 @@ export class Player extends Entity<PlayerAnimState> {
       MAX_HP,
       PLAYER_ANIMS,
       PlayerAnimState.Idle,
-      1.5,
+      2,
     );
 
     this.setDepth(5);
@@ -243,8 +218,7 @@ export class Player extends Entity<PlayerAnimState> {
     this.keys = {
       left: kb.addKey(K.LEFT),
       right: kb.addKey(K.RIGHT),
-      jump: kb.addKey(K.SPACE),
-      roll: kb.addKey(K.SHIFT),
+      roll: kb.addKey(K.SPACE),
       attack: kb.addKey(K.Z),
     };
   }
@@ -268,7 +242,6 @@ export class Player extends Entity<PlayerAnimState> {
       (this.keys.right.isDown ? 1 : 0) - (this.keys.left.isDown ? 1 : 0);
     const attackPressed = Phaser.Input.Keyboard.JustDown(this.keys.attack);
     const rollPressed = Phaser.Input.Keyboard.JustDown(this.keys.roll);
-    const jumpPressed = Phaser.Input.Keyboard.JustDown(this.keys.jump);
 
     if (time < this.hurtEndsAt) {
       // Оглушён: не управляем, отбрасывание гасится drag'ом
@@ -279,10 +252,9 @@ export class Player extends Entity<PlayerAnimState> {
       this.updateAttack(time, dir);
     } else if (attackPressed) {
       this.startAttack(time, dir);
-    } else if (rollPressed && this.onGround && time >= this.rollReadyAt) {
+    } else if (rollPressed && time >= this.rollReadyAt) {
       this.startRoll(time, dir);
     } else {
-      if (jumpPressed && this.onGround) this.body.setVelocityY(-JUMP_SPEED);
       this.body.setVelocityX(dir * RUN_SPEED);
       if (dir !== 0) this.facing = dir as 1 | -1;
     }
@@ -451,9 +423,6 @@ export class Player extends Entity<PlayerAnimState> {
     if (time < this.hurtEndsAt) next = PlayerAnimState.Hurt;
     else if (this.isRolling) next = PlayerAnimState.Roll;
     else if (this.isAttacking) next = this.attack!.state;
-    else if (!this.onGround)
-      next =
-        this.body.velocity.y < 0 ? PlayerAnimState.Jump : PlayerAnimState.Fall;
     else if (dir !== 0) next = PlayerAnimState.Run;
     else next = PlayerAnimState.Idle;
 

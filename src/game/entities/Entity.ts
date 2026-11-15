@@ -90,6 +90,7 @@ export class Entity<S extends string = string> extends Phaser.GameObjects.Rectan
     protected sprite: Phaser.GameObjects.Sprite;
 
     private readonly animSet: AnimSet<S>;
+    private flashTimer?: Phaser.Time.TimerEvent;
 
     /**
      * @param x — центр по X
@@ -198,7 +199,24 @@ export class Entity<S extends string = string> extends Phaser.GameObjects.Rectan
             this.sprite.play(def.key, true);
         } else {
             this.sprite.stop();
+            if (!this.flashTimer) this.setFillStyle(def.color);
         }
+    }
+
+    /** Короткая вспышка цветом (например, белым при получении урона). */
+    protected flash(color: number, duration: number): void {
+        this.flashTimer?.remove();
+        this.setFillStyle(color);
+        this.sprite?.setTint(color);
+        if (this.sprite) this.sprite.tintFill = true;
+
+        this.flashTimer = this.scene.time.delayedCall(duration, () => {
+            this.flashTimer = undefined;
+            if (!this.active) return;
+            this.setFillStyle(this.animSet[this.animState].color);
+            this.sprite?.clearTint();
+            if (this.sprite) this.sprite.tintFill = false;
+        });
     }
 
     /** Прозрачность и прямоугольника, и спрайта. */
@@ -225,6 +243,7 @@ export class Entity<S extends string = string> extends Phaser.GameObjects.Rectan
 
     /** Вместе с сущностью удаляем спрайт и таймер вспышки. */
     override destroy(fromScene?: boolean): void {
+        this.flashTimer?.remove();
         this.sprite?.destroy();
         super.destroy(fromScene);
     }
